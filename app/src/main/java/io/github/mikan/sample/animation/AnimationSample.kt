@@ -2,6 +2,7 @@ package io.github.mikan.sample.animation
 
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.Crossfade
 import androidx.compose.animation.SizeTransform
 import androidx.compose.animation.core.MutableTransitionState
 import androidx.compose.animation.core.keyframes
@@ -304,6 +305,27 @@ fun AnimatedContentSample(modifier: Modifier = Modifier) {
     }
 }
 
+@Composable
+fun CrossfadeSample(modifier: Modifier = Modifier) {
+    var currentPage by remember { mutableStateOf("A") }
+    Column(modifier) {
+        Button({
+            currentPage = when (currentPage) {
+                "A" -> "B"
+                else -> "A"
+            }
+        }) {
+            Text("Change")
+        }
+        Crossfade(targetState = currentPage, label = "cross fade") { screen ->
+            when (screen) {
+                "A" -> Text("Page A")
+                "B" -> Text("Page B")
+            }
+        }
+    }
+}
+
 // Preview
 @Preview
 @Composable
@@ -328,6 +350,16 @@ private fun AnimatedContentSamplePreview() {
     AnimationTheme {
         Surface {
             AnimatedContentSample()
+        }
+    }
+}
+
+@Preview
+@Composable
+private fun CrossfadeSamplePreview() {
+    AnimationTheme {
+        Surface {
+            CrossfadeSample()
         }
     }
 }
