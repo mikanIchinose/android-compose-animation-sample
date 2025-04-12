@@ -4,6 +4,7 @@ import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.Crossfade
 import androidx.compose.animation.SizeTransform
+import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.MutableTransitionState
 import androidx.compose.animation.core.keyframes
 import androidx.compose.animation.core.tween
@@ -17,6 +18,7 @@ import androidx.compose.animation.slideOutVertically
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -326,6 +328,21 @@ fun CrossfadeSample(modifier: Modifier = Modifier) {
     }
 }
 
+@Composable
+fun AnimateContentSizeSample(modifier: Modifier = Modifier) {
+    var expanded by remember { mutableStateOf(false) }
+    Box(
+        modifier = modifier
+            .background(MaterialTheme.colorScheme.primary)
+            .animateContentSize()
+            .height(if (expanded) 400.dp else 200.dp)
+            .fillMaxWidth()
+            .clickable {
+                expanded = !expanded
+            }
+    )
+}
+
 // Preview
 @Preview
 @Composable
@@ -360,6 +377,16 @@ private fun CrossfadeSamplePreview() {
     AnimationTheme {
         Surface {
             CrossfadeSample()
+        }
+    }
+}
+
+@Preview
+@Composable
+private fun AnimateContentSizeSamplePreview() {
+    AnimationTheme {
+        Surface(Modifier.padding(16.dp)) {
+            AnimateContentSizeSample()
         }
     }
 }
