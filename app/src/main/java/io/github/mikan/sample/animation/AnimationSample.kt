@@ -56,6 +56,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.State
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -68,6 +69,7 @@ import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
@@ -575,6 +577,56 @@ fun TransitionAnimatedVisibilitySample(modifier: Modifier = Modifier) {
     }
 }
 
+@Composable
+fun AnimatingBox(modifier: Modifier = Modifier) {
+    var boxState by remember { mutableStateOf(BoxState.Collapsed) }
+    val transitionData = updateTransitionData(boxState)
+    Box(
+        modifier = modifier
+            .size(transitionData.size)
+            .background(transitionData.color)
+            .clickable {
+                boxState = when (boxState) {
+                    BoxState.Collapsed -> BoxState.Expanded
+                    BoxState.Expanded -> BoxState.Collapsed
+                }
+            }
+    )
+}
+
+/**
+ * アニメーションする値をカプセル化したクラス
+ */
+private class TransitionData(
+    color: State<Color>,
+    size: State<Dp>,
+) {
+    val color by color
+    val size by size
+}
+
+/**
+ * updateTransitionに倣って、updateTransitionDataという名前にする
+ * boxStateの変更に基づいて、transitionDataの値を更新する
+ */
+@Composable
+private fun updateTransitionData(boxState: BoxState): TransitionData {
+    val transition = updateTransition(boxState, label = "box state")
+    val color = transition.animateColor(label = "color") { state ->
+        when (state) {
+            BoxState.Collapsed -> Color.Red
+            BoxState.Expanded -> Color.Green
+        }
+    }
+    val size = transition.animateDp(label = "size") { state ->
+        when (state) {
+            BoxState.Collapsed -> 64.dp
+            BoxState.Expanded -> 128.dp
+        }
+    }
+    return remember(transition) { TransitionData(color, size) }
+}
+
 // Preview
 @Preview
 @Composable
@@ -636,6 +688,7 @@ private fun ValueBasedAnimationSamplesPreview() {
                 TransitionSample()
                 Dialer()
                 TransitionAnimatedVisibilitySample()
+                AnimatingBox()
             }
         }
     }
