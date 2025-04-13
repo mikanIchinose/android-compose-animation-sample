@@ -9,14 +9,19 @@ import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.ExperimentalTransitionApi
 import androidx.compose.animation.core.MutableTransitionState
+import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.Transition
+import androidx.compose.animation.core.VectorConverter
 import androidx.compose.animation.core.animateDp
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.animateIntOffsetAsState
 import androidx.compose.animation.core.animateSize
+import androidx.compose.animation.core.animateValue
 import androidx.compose.animation.core.createChildTransition
+import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.keyframes
+import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.core.updateTransition
@@ -45,6 +50,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.requiredHeight
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Edit
@@ -627,6 +633,42 @@ private fun updateTransitionData(boxState: BoxState): TransitionData {
     return remember(transition) { TransitionData(color, size) }
 }
 
+@Composable
+fun InfiniteTransitionSample(modifier: Modifier = Modifier) {
+    val infiniteTransition = rememberInfiniteTransition(label = "infinite transition")
+    val color by infiniteTransition.animateColor(
+        initialValue = Color.Red,
+        targetValue = Color(0xffffc56e),
+        animationSpec = infiniteRepeatable(
+            animation = tween(2000),
+            repeatMode = RepeatMode.Reverse,
+        ),
+        label = "color",
+    )
+    val size by infiniteTransition.animateValue(
+        initialValue = 100.dp,
+        targetValue = 120.dp,
+        typeConverter = Dp.VectorConverter,
+        animationSpec = infiniteRepeatable(
+            animation = tween(2000),
+            repeatMode = RepeatMode.Reverse,
+        ),
+        label = "size",
+    )
+    Box(
+        contentAlignment = Alignment.Center,
+        modifier = modifier
+            .size(200.dp)
+    ) {
+        Box(
+            modifier = Modifier
+                .clip(CircleShape)
+                .size(size)
+                .background(color)
+        )
+    }
+}
+
 // Preview
 @Preview
 @Composable
@@ -689,6 +731,7 @@ private fun ValueBasedAnimationSamplesPreview() {
                 Dialer()
                 TransitionAnimatedVisibilitySample()
                 AnimatingBox()
+                InfiniteTransitionSample()
             }
         }
     }
