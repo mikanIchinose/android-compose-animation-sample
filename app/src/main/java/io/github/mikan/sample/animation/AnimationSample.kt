@@ -4,11 +4,24 @@ import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.Crossfade
 import androidx.compose.animation.SizeTransform
+import androidx.compose.animation.animateColor
+import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.animateContentSize
+import androidx.compose.animation.core.ExperimentalTransitionApi
 import androidx.compose.animation.core.MutableTransitionState
+import androidx.compose.animation.core.Transition
+import androidx.compose.animation.core.animateDp
+import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.animateIntOffsetAsState
+import androidx.compose.animation.core.animateSize
+import androidx.compose.animation.core.createChildTransition
 import androidx.compose.animation.core.keyframes
+import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
+import androidx.compose.animation.core.updateTransition
 import androidx.compose.animation.expandHorizontally
+import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.shrinkHorizontally
@@ -16,6 +29,7 @@ import androidx.compose.animation.shrinkVertically
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.animation.togetherWith
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -23,14 +37,20 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.requiredHeight
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.Phone
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -44,8 +64,11 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import io.github.mikan.sample.animation.ui.theme.AnimationTheme
@@ -343,6 +366,215 @@ fun AnimateContentSizeSample(modifier: Modifier = Modifier) {
     )
 }
 
+@Composable
+fun AnimateSomethingAsStateSample(modifier: Modifier = Modifier) {
+    var enabled by remember { mutableStateOf(true) }
+    val animatedAlpha by animateFloatAsState(if (enabled) 1f else 0.5f, label = "alpha")
+    val width by animateDpAsState(if (enabled) 200.dp else 100.dp, label = "width")
+    val background by animateColorAsState(
+        if (enabled) {
+            MaterialTheme.colorScheme.primary
+        } else {
+            MaterialTheme.colorScheme.primaryContainer
+        },
+        label = "color"
+    )
+    val textColor by animateColorAsState(
+        if (enabled) {
+            MaterialTheme.colorScheme.onPrimary
+        } else {
+            MaterialTheme.colorScheme.onPrimaryContainer
+        },
+        label = "color"
+    )
+    val offset by animateIntOffsetAsState(
+        if (enabled) {
+            IntOffset(100, 100)
+        } else {
+            IntOffset(0, 0)
+        },
+        label = "offset"
+    )
+    Box(
+        modifier = modifier
+            .height(100.dp)
+            .width(width)
+            .graphicsLayer {
+                alpha = animatedAlpha
+            }
+            .background(background)
+            .clickable {
+                enabled = !enabled
+            }
+    ) {
+        Text(
+            text = "Hello World",
+            color = textColor,
+            modifier = Modifier.offset { offset }
+        )
+    }
+}
+
+enum class BoxState {
+    Collapsed,
+    Expanded,
+}
+
+@Composable
+fun TransitionSample(modifier: Modifier = Modifier) {
+    var currentState by remember { mutableStateOf(BoxState.Collapsed) }
+    val transition = updateTransition(currentState, label = "box state")
+    val size by transition.animateSize { state ->
+        when (state) {
+            BoxState.Collapsed -> Size(100f, 100f)
+            BoxState.Expanded -> Size(200f, 200f)
+        }
+    }
+    val borderWidth by transition.animateDp { state ->
+        when (state) {
+            BoxState.Collapsed -> 1.dp
+            BoxState.Expanded -> 2.dp
+        }
+    }
+    val color by transition.animateColor(
+        transitionSpec = {
+            when {
+                BoxState.Expanded isTransitioningTo BoxState.Collapsed ->
+                    spring(stiffness = 50f)
+
+                else ->
+                    tween(durationMillis = 500)
+            }
+        },
+        label = "color",
+    ) { state ->
+        when (state) {
+            BoxState.Collapsed -> MaterialTheme.colorScheme.primary
+            BoxState.Expanded -> MaterialTheme.colorScheme.background
+        }
+    }
+    Box(
+        modifier = modifier
+            .size(size.width.dp, size.height.dp)
+            .border(borderWidth, Color.Black)
+            .background(color)
+            .clickable {
+                currentState = when (currentState) {
+                    BoxState.Collapsed -> BoxState.Expanded
+                    BoxState.Expanded -> BoxState.Collapsed
+                }
+            }
+    )
+}
+
+enum class DialerState { DialerMinimized, NumberPad }
+
+@Composable
+fun DialerButton(
+    isVisibleTransition: Transition<Boolean>,
+    onClick: () -> Unit,
+) {
+    isVisibleTransition.AnimatedVisibility(
+        visible = { it },
+        enter = fadeIn(),
+        exit = fadeOut(),
+    ) {
+        Button(
+            onClick = onClick,
+            modifier = Modifier.width(200.dp)
+        ) {
+            Text("Dialer")
+        }
+    }
+}
+
+@Composable
+fun NumberPad(
+    isVisibleTransition: Transition<Boolean>,
+    onClick: () -> Unit,
+) {
+    isVisibleTransition.AnimatedVisibility(
+        visible = { it },
+        enter = fadeIn(),
+        exit = fadeOut(),
+    ) {
+        Button(
+            onClick = onClick,
+            colors = ButtonDefaults.buttonColors().copy(
+                containerColor = MaterialTheme.colorScheme.secondary,
+                contentColor = MaterialTheme.colorScheme.onSecondary,
+            ),
+            modifier = Modifier.width(200.dp)
+        ) {
+            Text("NumberPad")
+        }
+    }
+}
+
+@OptIn(ExperimentalTransitionApi::class)
+@Composable
+fun Dialer(
+    modifier: Modifier = Modifier,
+) {
+    var dialerState by remember { mutableStateOf(DialerState.DialerMinimized) }
+    val transition = updateTransition(dialerState, label = "dialer state")
+    Box(modifier) {
+        NumberPad(
+            transition.createChildTransition {
+                it == DialerState.NumberPad
+            },
+            onClick = { dialerState = DialerState.DialerMinimized }
+        )
+        DialerButton(
+            transition.createChildTransition {
+                it == DialerState.DialerMinimized
+            },
+            onClick = { dialerState = DialerState.NumberPad }
+        )
+    }
+}
+
+@Composable
+fun TransitionAnimatedVisibilitySample(modifier: Modifier = Modifier) {
+    var selected by remember { mutableStateOf(false) }
+    val transition = updateTransition(selected, label = "selected state")
+    val borderColor by transition.animateColor(label = "border color") { isSelected ->
+        if (isSelected) Color.Magenta else Color.White
+    }
+    val elevation by transition.animateDp(label = "elevation") { isSelected ->
+        if (isSelected) 10.dp else 2.dp
+    }
+    Surface(
+        onClick = { selected = !selected },
+        shape = RoundedCornerShape(8.dp),
+        border = BorderStroke(2.dp, borderColor),
+        shadowElevation = elevation,
+        modifier = modifier,
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp)
+        ) {
+            Text(text = "Hello, world!")
+            transition.AnimatedVisibility(
+                visible = { targetSelected -> targetSelected },
+                enter = expandVertically(),
+                exit = shrinkVertically()
+            ) {
+                Text(text = "It is fine today.")
+            }
+            transition.AnimatedContent { targetState ->
+                if (targetState) {
+                    Text(text = "Selected")
+                } else {
+                    Icon(imageVector = Icons.Default.Phone, contentDescription = "Phone")
+                }
+            }
+        }
+    }
+}
+
 // Preview
 @Preview
 @Composable
@@ -387,6 +619,24 @@ private fun AnimateContentSizeSamplePreview() {
     AnimationTheme {
         Surface(Modifier.padding(16.dp)) {
             AnimateContentSizeSample()
+        }
+    }
+}
+
+@Preview
+@Composable
+private fun ValueBasedAnimationSamplesPreview() {
+    AnimationTheme {
+        Surface(Modifier.fillMaxSize()) {
+            Column(
+                modifier = Modifier.padding(16.dp),
+                verticalArrangement = Arrangement.spacedBy(16.dp),
+            ) {
+                AnimateSomethingAsStateSample()
+                TransitionSample()
+                Dialer()
+                TransitionAnimatedVisibilitySample()
+            }
         }
     }
 }
