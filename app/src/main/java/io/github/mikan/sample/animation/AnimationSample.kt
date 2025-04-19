@@ -19,6 +19,7 @@ import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.animateIntOffsetAsState
 import androidx.compose.animation.core.animateSize
 import androidx.compose.animation.core.animateValue
+import androidx.compose.animation.core.calculateTargetValue
 import androidx.compose.animation.core.createChildTransition
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.keyframes
@@ -34,12 +35,15 @@ import androidx.compose.animation.shrinkHorizontally
 import androidx.compose.animation.shrinkVertically
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
+import androidx.compose.animation.splineBasedDecay
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.gestures.horizontalDrag
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -52,6 +56,8 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.requiredHeight
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -64,28 +70,35 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.State
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.composed
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.input.pointer.positionChange
+import androidx.compose.ui.input.pointer.util.VelocityTracker
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import io.github.mikan.sample.animation.ui.theme.AnimationTheme
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.launch
+import kotlin.math.absoluteValue
 import kotlin.math.roundToInt
 
 /**
@@ -703,6 +716,94 @@ fun Gesture(modifier: Modifier = Modifier) {
 
 private fun Offset.toIntOffset() = IntOffset(x.roundToInt(), y.roundToInt())
 
+fun Modifier.swipeToDismiss(
+    onDismissed: () -> Unit
+): Modifier = composed {
+    val offsetX = remember { Animatable(0f) }
+    pointerInput(Unit) {
+        val decay = splineBasedDecay<Float>(this)
+        coroutineScope {
+            while (true) {
+                val velocityTracker = VelocityTracker()
+                offsetX.stop()
+                awaitPointerEventScope {
+                    val pointerId = awaitFirstDown().id
+                    horizontalDrag(pointerId) { change ->
+                        launch {
+                            offsetX.snapTo(offsetX.value + change.positionChange().x)
+                        }
+                        velocityTracker.addPosition(
+                            change.uptimeMillis,
+                            change.position,
+                        )
+                    }
+                }
+                val velocity = velocityTracker.calculateVelocity().x
+                val targetOffsetX = decay.calculateTargetValue(offsetX.value, velocity)
+                offsetX.updateBounds(
+                    lowerBound = -size.width.toFloat(),
+                    upperBound = size.width.toFloat(),
+                )
+                launch {
+                    if (targetOffsetX.absoluteValue <= size.width) {
+                        offsetX.animateTo(
+                            targetValue = 0f,
+                            initialVelocity = velocity,
+                        )
+                    } else {
+                        offsetX.animateDecay(velocity, decay)
+                        onDismissed()
+                    }
+                }
+            }
+        }
+    }
+        .offset { IntOffset(offsetX.value.roundToInt(), 0) }
+}
+
+@Composable
+fun TodoList(modifier: Modifier = Modifier) {
+    val todos = remember {
+        mutableStateListOf(
+            "Take out the trash",
+            "Do the dishes",
+            "Write a blog post",
+        )
+    }
+    LaunchedEffect(todos.size) {
+        println("changed: ${todos.toList()}")
+    }
+    LazyColumn(
+        modifier = modifier.padding(16.dp),
+        verticalArrangement = Arrangement.spacedBy(32.dp)
+    ) {
+        items(todos, { it }) { text ->
+            Box(
+                modifier = Modifier
+                    .swipeToDismiss(
+                        onDismissed = {
+                            println("remove: $text")
+                            todos.remove(text)
+                        }
+                    )
+                    .padding(horizontal = 16.dp)
+                    .background(
+                        color = MaterialTheme.colorScheme.secondaryContainer,
+                        shape = RoundedCornerShape(8.dp),
+                    )
+                    .padding(16.dp)
+                    .height(100.dp)
+                    .fillMaxWidth()
+            ) {
+                Text(
+                    text = text,
+                    color = MaterialTheme.colorScheme.onSecondaryContainer,
+                )
+            }
+        }
+    }
+}
+
 // Preview
 @Preview
 @Composable
@@ -773,10 +874,20 @@ private fun ValueBasedAnimationSamplesPreview() {
 
 @Preview
 @Composable
-private fun AdvancedAnimationSample() {
+private fun AdvancedAnimationSamplePreview() {
     AnimationTheme {
         Surface {
             Gesture()
+        }
+    }
+}
+
+@Preview
+@Composable
+private fun SwipeToDismissSamplePreview() {
+    AnimationTheme {
+        Surface {
+            TodoList()
         }
     }
 }
